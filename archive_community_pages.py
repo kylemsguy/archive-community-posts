@@ -47,6 +47,7 @@ def get_base_post_data(data):
     post_data = {
         "current_timestamp": time.time(),
         "image_urls": None,
+        "members_only": False,
     }
     item_section_renderer_contents = data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0][
         'tabRenderer']['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
@@ -58,6 +59,9 @@ def get_base_post_data(data):
             backstage_post_renderer['publishedTimeText']
             text = backstage_post_renderer['contentText']
             post_data['text'] = text
+            if 'sponsorsOnlyBadge' in backstage_post_renderer:
+                # I think the existence of this field == members. Could be wrong and is def flimsy.
+                post_data['members_only'] = True
             # Assuming a single run here... whatever a run is.
             post_data['published_time_text'] = backstage_post_renderer['publishedTimeText']['runs'][0]['text']
             backstage_attachment = backstage_post_renderer['backstageAttachment']
