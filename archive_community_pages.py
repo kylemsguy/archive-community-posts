@@ -1,12 +1,13 @@
 import argparse
 import json
-import re
-import requests
-import http.cookiejar as cookielib
-
 import os
 import sys
 import time
+import mimetypes
+import re
+
+import requests
+import http.cookiejar as cookielib
 
 
 def get_arg_parser():
@@ -83,8 +84,12 @@ def get_base_post_data(data):
 
 def download_image_data(urls, output_dir):
     # Looks like images don't require cookies even for members posts. Should be easy to add later if this is ever required...
-    for u in urls:
+    for i, u in enumerate(urls):
         r = requests.get(u)
+        extension = mimetypes.guess_extension(r.headers['content-type'])
+        extension = extension if extension else ".bin"
+        with open(os.path.join(output_dir, f"{i}{extension}"), 'wb') as outfile:
+            outfile.write(r.content)
 
 
 if __name__ == "__main__":
