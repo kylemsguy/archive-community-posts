@@ -2,6 +2,7 @@ import argparse
 import json
 import re
 import requests
+import http.cookiejar as cookielib
 
 import os
 import sys
@@ -19,8 +20,13 @@ def get_arg_parser():
                         help="Cookies.txt for youtube (needed for members content and posts)")
     return parser
 
-def download_page(url):
-    r = requests.get(url)
+def download_page(url, cookiepath):
+    if cookiepath:
+        cj = cookielib.MozillaCookieJar(cookiepath)
+        cj.load()
+        r = requests.get(url, cookies=cj)
+    else:
+        r = requests.get(url)
     if r.status_code != 200:
         raise ConnectionError("Could not download requested URL")
     return r.text
@@ -31,7 +37,10 @@ def extract_script(page):
     return result.group(1)
 
 def get_base_post_data(data):
-    post_data = {"current_timestamp": time.time()}
+    post_data = {
+        "current_timestamp": time.time(),
+        "image_urls": None,
+    }
     item_section_renderer_contents = data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0]['tabRenderer']['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
     for x in item_section_renderer_contents:
         if 'backstagePostThreadRenderer' in x:
@@ -45,7 +54,7 @@ def get_base_post_data(data):
             post_data['published_time_text'] = backstage_post_renderer['publishedTimeText']['runs'][0]['text']
             backstage_attachment = backstage_post_renderer['backstageAttachment']
             if 'postMultiImageRenderer' in backstage_attachment:
-                # We have an image post here
+                # We have a multi image post here
                 images = backstage_attachment['postMultiImageRenderer']['images']
                 image_urls = []
                 for im in images:
@@ -54,6 +63,12 @@ def get_base_post_data(data):
                     image_url = backstageImageRenderer['image']['thumbnails'][-1]['url']
                     image_urls.append(image_url)
                 post_data['image_urls'] = image_urls
+            elif 'backstageImageRenderer' in backstage_attachment:
+                # We have a single image post here
+                backstageImageRenderer = backstage_attachment['backstageImageRenderer']
+                image_url = backstageImageRenderer['image']['thumbnails'][-1]['url']
+                # Also assuming that we can only have one type of attachment here...
+                post_data['image_urls'] = [image_url]
             # TODO: maybe support other types of posts (namely pollRenderer)
             break
     return post_data
@@ -84,7 +99,7 @@ if __name__ == "__main__":
             except:
                 pass
             try:
-                page = download_page(url)
+                page = download_page(url, args.cookies)
             except ConnectionError:
                 print(f"An error occurred while trying to download {url}. Might be member post. Check your cookies.", file=sys.stderr)
                 print("Failed to download. Might be member post. Check your cookies.", file=summaryfile)
@@ -108,7 +123,7 @@ if __name__ == "__main__":
             extracted_data = get_base_post_data(data)
 
             with open(os.path.join(outputdir, str(i), "extracted_post_data.json"), 'w') as outfile:
-                json.dump(extracted_data, outfile)
+                json.dump(extracted_data, outfile, indent=4)
 
             if 'image_urls' in extracted_data and extracted_data['image_urls']:
                 download_image_data(extracted_data['image_urls'], os.path.join(outputdir, str(i)))
