@@ -8,17 +8,20 @@ import os
 import sys
 import time
 
+
 def get_arg_parser():
-    parser = argparse.ArgumentParser(description='Attempts to download community posts.')
+    parser = argparse.ArgumentParser(
+        description='Attempts to download community posts.')
     parser.add_argument('communitypage',
                         help='A text file with a list of commmunity pages')
-    parser.add_argument('outputdir', 
+    parser.add_argument('outputdir',
                         help='A directory to use to store the saved data')
     parser.add_argument('--no-save-intermediaries',
                         help="[not implemented] Do not save intermediate files (Not recommended)")
     parser.add_argument('--cookies',
                         help="Cookies.txt for youtube (needed for members content and posts)")
     return parser
+
 
 def download_page(url, cookiepath):
     if cookiepath:
@@ -31,17 +34,21 @@ def download_page(url, cookiepath):
         raise ConnectionError("Could not download requested URL")
     return r.text
 
+
 def extract_script(page):
-    result = re.search(r"<script.*var ytInitialData = (\{.*\});</script>", page)
+    result = re.search(
+        r"<script.*var ytInitialData = (\{.*\});</script>", page)
     # TODO: error handling
     return result.group(1)
+
 
 def get_base_post_data(data):
     post_data = {
         "current_timestamp": time.time(),
         "image_urls": None,
     }
-    item_section_renderer_contents = data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0]['tabRenderer']['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
+    item_section_renderer_contents = data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0][
+        'tabRenderer']['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
     for x in item_section_renderer_contents:
         if 'backstagePostThreadRenderer' in x:
             # do stuff
@@ -73,10 +80,12 @@ def get_base_post_data(data):
             break
     return post_data
 
+
 def download_image_data(urls, output_dir):
+    # Looks like images don't require cookies even for members posts. Should be easy to add later if this is ever required...
     for u in urls:
-        pass
-    
+        r = requests.get(u)
+
 
 if __name__ == "__main__":
     parser = get_arg_parser()
@@ -90,7 +99,7 @@ if __name__ == "__main__":
         os.makedirs(outputdir)
     elif not os.path.isdir(outputdir):
         raise ValueError(f"{args.outputir} is not a valid directory.")
-    
+
     with open(os.path.join(outputdir, "summary.txt"), 'w') as summaryfile:
         for i, url in enumerate(urls):
             print(f"{i}: {url}", file=summaryfile)
@@ -101,8 +110,10 @@ if __name__ == "__main__":
             try:
                 page = download_page(url, args.cookies)
             except ConnectionError:
-                print(f"An error occurred while trying to download {url}. Might be member post. Check your cookies.", file=sys.stderr)
-                print("Failed to download. Might be member post. Check your cookies.", file=summaryfile)
+                print(
+                    f"An error occurred while trying to download {url}. Might be member post. Check your cookies.", file=sys.stderr)
+                print(
+                    "Failed to download. Might be member post. Check your cookies.", file=summaryfile)
                 continue
 
             with open(os.path.join(outputdir, str(i), "rawpage.html"), 'w') as rawpagefile:
@@ -126,6 +137,5 @@ if __name__ == "__main__":
                 json.dump(extracted_data, outfile, indent=4)
 
             if 'image_urls' in extracted_data and extracted_data['image_urls']:
-                download_image_data(extracted_data['image_urls'], os.path.join(outputdir, str(i)))
-
-            
+                download_image_data(
+                    extracted_data['image_urls'], os.path.join(outputdir, str(i)))
