@@ -107,6 +107,7 @@ if __name__ == "__main__":
 
     with open(os.path.join(outputdir, "summary.txt"), 'w') as summaryfile:
         for i, url in enumerate(urls):
+            summaryfile.flush()
             print(f"{i}: {url}", file=summaryfile)
             try:
                 os.mkdir(os.path.join(outputdir, str(i)))
