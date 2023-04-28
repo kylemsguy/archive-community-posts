@@ -17,10 +17,12 @@ def get_arg_parser():
                         help='A text file with a list of commmunity pages')
     parser.add_argument('outputdir',
                         help='A directory to use to store the saved data')
-    parser.add_argument('--no-save-intermediaries',
-                        help="[not implemented] Do not save intermediate files (Not recommended)")
+    # parser.add_argument('--no-save-intermediaries',
+    #                     help="[not implemented] Do not save intermediate files (Not recommended)")
     parser.add_argument('--cookies',
                         help="Cookies.txt for youtube (needed for members content and posts)")
+    parser.add_argument('--skip-image-dl',
+                        help="Skips all image downloads", action='store_true')
     return parser
 
 
@@ -104,10 +106,12 @@ def handlePollData(post_data, poll_renderer):
     }
 
     for choice in poll_renderer['choices']:
+        if 'voteRatio' not in choice:
+            print("Warning: unable to get detailed vote data because you haven't voted or aren't logged in.", file=sys.stderr)
         choice = {
             'text': choice['text']['runs'][0]['text'],  # Assuming one run...
-            'numVotes': choice['numVotes'],
-            'voteRatio': choice['voteRatio'],
+            'numVotes': choice['numVotes'] if 'numVotes' in choice else None,
+            'voteRatio': choice['voteRatio'] if 'voteRatio' in choice else None,
             'voteRatioIfSelected': choice['voteRatioIfSelected'],
             'voteRatioIfNotSelected': choice['voteRatioIfNotSelected'],
             'imageUrl': choice['image']['thumbnails'][-1]['url'] if 'image' in choice else None,  # Assuming again that last thumbnail is largest
@@ -150,13 +154,17 @@ def download_poll_image_data(poll_data, output_dir):
     # Looks like images don't require cookies even for members posts. Should be easy to add later if this is ever required...
     for i, choice in enumerate(poll_data['choices']):
         if not choice['imageUrl']:
-            print("This poll choice does not have image data", file=sys.stderr)
+            print(f"This poll choice ({choice['text']}) does not have image data", file=sys.stderr)
             continue
         r = requests.get(choice['imageUrl'])
         extension = mimetypes.guess_extension(r.headers['content-type'])
         extension = extension if extension else ".bin"
-        with open(os.path.join(output_dir, f"pollchoice-{i}-{choice['text']}{extension}"), 'wb') as outfile:
+        with open(os.path.join(output_dir, f"pollchoice-{i}-{sanitize_filename(choice['text'])}{extension}"), 'wb') as outfile:
             outfile.write(r.content)
+
+def sanitize_filename(filename):
+    # TODO: find a more reliable way of doing this because this is super scuffed
+    return filename.replace('/', '-')
 
 if __name__ == "__main__":
     parser = get_arg_parser()
@@ -208,6 +216,9 @@ if __name__ == "__main__":
 
             with open(os.path.join(outputdir, str(i), "extracted_post_data.json"), 'w') as outfile:
                 json.dump(extracted_data, outfile, indent=4)
+
+            if args.skip_image_dl:
+                continue
 
             if extracted_data['image_urls']:
                 download_image_data(
