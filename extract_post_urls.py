@@ -1,4 +1,5 @@
 import argparse
+import re
 
 from bs4 import BeautifulSoup
 
@@ -19,11 +20,17 @@ def read_tag_soup(filepath):
         html = infile.read()
 
     return BeautifulSoup(html, "html.parser")
+
+def get_links_regex(filepath):
+    with open(filepath) as infile:
+        html = infile.read()
+
+    # TODO: finish this so we can remove dependency on beautifulsoup
     
     
 def parse_links(tag_soup):
     a_tags = tag_soup.select('a[aria-label]')
-    return [atag.get("href") for atag in a_tags if atag.get("aria-label") == "Go to post detail"]
+    return [atag.get("href") for atag in a_tags if atag.get("aria-label") == "Go to post detail" or atag.get("aria-label") == "Comment"]
 
 def print_full_links(links, baseurl="https://www.youtube.com"):
     for l in links:
